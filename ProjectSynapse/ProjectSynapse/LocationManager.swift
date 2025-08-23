@@ -17,20 +17,35 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         self.authorizationStatus = locationManager.authorizationStatus
         super.init()
         locationManager.delegate = self
+        // --- CORRECTED LINE BELOW ---
         locationManager.desiredAccuracy = kCLLocationAccuracyBest
         locationManager.startUpdatingLocation()
     }
     
     func requestAuthorization() {
         locationManager.requestWhenInUseAuthorization()
-        // For a real game, you might want to request Always authorization for background geofencing
-        // locationManager.requestAlwaysAuthorization()
+    }
+    
+    func startMonitoring(missions: [Mission]) {
+        if CLLocationManager.isMonitoringAvailable(for: CLCircularRegion.self) {
+            for mission in missions {
+                let region = CLCircularRegion(center: mission.coordinate, radius: mission.radius, identifier: mission.id.uuidString)
+                region.notifyOnEntry = true
+                region.notifyOnExit = false // We only care when they enter
+                locationManager.startMonitoring(for: region)
+                print("🔵 Started monitoring for mission: \(mission.name)")
+            }
+        }
     }
     
     // MARK: - CLLocationManagerDelegate
     
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         self.authorizationStatus = manager.authorizationStatus
+        
+        if manager.authorizationStatus == .authorizedWhenInUse || manager.authorizationStatus == .authorizedAlways {
+            startMonitoring(missions: missionLocations)
+        }
     }
     
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
@@ -39,5 +54,16 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
         print("Location Manager failed with error: \(error.localizedDescription)")
+    }
+    
+    func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
+        guard let mission = missionLocations.first(where: { $0.id.uuidString == region.identifier }) else { return }
+        print("✅ PLAYER ENTERED a mission zone: \(mission.name)")
+        // This is where we will eventually trigger the interaction with the AI
+    }
+    
+    func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {
+        guard let mission = missionLocations.first(where: { $0.id.uuidString == region.identifier }) else { return }
+        print("❌ Player EXITED a mission zone: \(mission.name)")
     }
 }
