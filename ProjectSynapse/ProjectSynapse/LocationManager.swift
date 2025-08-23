@@ -17,7 +17,6 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         self.authorizationStatus = locationManager.authorizationStatus
         super.init()
         locationManager.delegate = self
-        // --- CORRECTED LINE BELOW ---
         locationManager.desiredAccuracy = kCLLocationAccuracyBest
         locationManager.startUpdatingLocation()
     }
@@ -33,6 +32,7 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
                 region.notifyOnEntry = true
                 region.notifyOnExit = false // We only care when they enter
                 locationManager.startMonitoring(for: region)
+                locationManager.requestState(for: region)
                 print("🔵 Started monitoring for mission: \(mission.name)")
             }
         }
@@ -65,5 +65,13 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {
         guard let mission = missionLocations.first(where: { $0.id.uuidString == region.identifier }) else { return }
         print("❌ Player EXITED a mission zone: \(mission.name)")
+    }
+    
+    func locationManager(_ manager: CLLocationManager, didDetermineState state: CLRegionState, for region: CLRegion) {
+        if state == .inside {
+            guard let mission = missionLocations.first(where: { $0.id.uuidString == region.identifier }) else { return }
+            print("📱 PLAYER STARTED INSIDE a mission zone: \(mission.name)")
+            // We can now trigger the same interaction logic as didEnterRegion
+        }
     }
 }
