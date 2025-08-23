@@ -4,6 +4,10 @@ FROM python:3.12-slim
 # Set the working directory inside the container
 WORKDIR /app
 
+# --- THIS IS THE FIX ---
+# Install system build tools needed for C++ compilation (g++, make, etc.)
+RUN apt-get update && apt-get install -y build-essential
+
 # Copy the requirements file into the container
 COPY requirements.txt .
 
@@ -17,5 +21,4 @@ COPY . .
 EXPOSE 5001
 
 # The command to run your application using Gunicorn
-# This is the production-ready way to run a Flask app
 CMD ["gunicorn", "--bind", "0.0.0.0:5001", "app:app"]
