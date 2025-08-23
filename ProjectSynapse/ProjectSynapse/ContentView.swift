@@ -16,9 +16,8 @@ struct ContentView: View {
             Text("Hello, world!")
         }
         .padding()
+        .onAppear {
+            _ = LocationManager()
+        }
     }
-}
-
-#Preview {
-    ContentView()
 }
