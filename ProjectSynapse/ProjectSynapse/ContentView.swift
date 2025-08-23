@@ -26,7 +26,6 @@ struct ContentView: View {
                         .shadow(radius: 3)
                 }
                 
-                // --- NEW: The visual circle for the geofence zone ---
                 MapCircle(center: mission.coordinate, radius: mission.radius)
                     .foregroundStyle(.indigo.opacity(0.2))
                     .stroke(.indigo.opacity(0.8), lineWidth: 2)
@@ -43,6 +42,10 @@ struct ContentView: View {
                     MapCamera(centerCoordinate: newLocation.coordinate, distance: 2000, heading: 0, pitch: 60)
                 )
             }
+        }
+        .sheet(item: $locationManager.activeMission) { mission in
+            InteractionView(mission: mission)
+                .presentationDetents([.medium, .large]) // Makes a nice half/full sheet
         }
     }
 }

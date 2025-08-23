@@ -12,6 +12,7 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     
     @Published var authorizationStatus: CLAuthorizationStatus
     @Published var lastKnownLocation: CLLocation?
+    @Published var activeMission: Mission? = nil
     
     override init() {
         self.authorizationStatus = locationManager.authorizationStatus
@@ -57,9 +58,8 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     }
     
     func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
-        guard let mission = missionLocations.first(where: { $0.id.uuidString == region.identifier }) else { return }
-        print("✅ PLAYER ENTERED a mission zone: \(mission.name)")
-        // This is where we will eventually trigger the interaction with the AI
+        print("--- Delegate Fired: didEnterRegion for identifier: \(region.identifier)")
+        handleRegionEvent(for: region)
     }
     
     func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {
@@ -68,10 +68,30 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     }
     
     func locationManager(_ manager: CLLocationManager, didDetermineState state: CLRegionState, for region: CLRegion) {
+        print("--- Delegate Fired: didDetermineState is '\(state == .inside ? "inside" : "outside")'")
         if state == .inside {
-            guard let mission = missionLocations.first(where: { $0.id.uuidString == region.identifier }) else { return }
-            print("📱 PLAYER STARTED INSIDE a mission zone: \(mission.name)")
-            // We can now trigger the same interaction logic as didEnterRegion
+            handleRegionEvent(for: region)
+        }
+    }
+    
+    private func handleRegionEvent(for region: CLRegion) {
+        print("--- Searching for match for region identifier: \(region.identifier)")
+        print("--- Available mission IDs are:")
+        for mission in missionLocations {
+            print("    - \(mission.id.uuidString)")
+        }
+        
+        guard let mission = missionLocations.first(where: { $0.id.uuidString == region.identifier }) else { return }
+        
+        // UI updates must be on the main thread
+        DispatchQueue.main.async {
+            // Only trigger if a mission isn't already active
+            if self.activeMission == nil {
+                print("✅ TRIGGERING mission: \(mission.name)")
+                self.activeMission = mission
+            } else {
+                print("🟡 IGNORED trigger for \(mission.name), another mission is already active.")
+            }
         }
     }
 }
