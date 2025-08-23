@@ -14,11 +14,10 @@ struct ContentView: View {
     
     var body: some View {
         Map(position: $position) {
-            // Show the user's location with the default blue dot
             UserAnnotation()
             
-            // Show all the mission locations with a custom pin
             ForEach(missionLocations) { mission in
+                // The visual pin for the mission
                 Annotation(mission.name, coordinate: mission.coordinate) {
                     Image(systemName: "antenna.radiowaves.left.and.right.circle.fill")
                         .symbolRenderingMode(.palette)
@@ -26,6 +25,11 @@ struct ContentView: View {
                         .font(.title)
                         .shadow(radius: 3)
                 }
+                
+                // --- NEW: The visual circle for the geofence zone ---
+                MapCircle(center: mission.coordinate, radius: mission.radius)
+                    .foregroundStyle(.indigo.opacity(0.2))
+                    .stroke(.indigo.opacity(0.8), lineWidth: 2)
             }
         }
         .mapStyle(.standard(elevation: .realistic))
@@ -34,7 +38,6 @@ struct ContentView: View {
             locationManager.requestAuthorization()
         }
         .onChange(of: locationManager.lastKnownLocation) { _, newLocation in
-            // This ensures the map stays centered on the user if they move.
             if let newLocation {
                 position = .camera(
                     MapCamera(centerCoordinate: newLocation.coordinate, distance: 2000, heading: 0, pitch: 60)
