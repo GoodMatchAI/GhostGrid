@@ -1,10 +1,12 @@
 # Use an official lightweight Python image
 FROM python:3.12-slim
 
+# Tell Python to run in unbuffered mode, which is better for container logging
+ENV PYTHONUNBUFFERED=1
+
 # Set the working directory inside the container
 WORKDIR /app
 
-# --- THIS IS THE FIX ---
 # Install system build tools needed for C++ compilation (g++, make, etc.)
 RUN apt-get update && apt-get install -y build-essential
 
