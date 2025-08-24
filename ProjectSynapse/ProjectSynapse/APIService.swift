@@ -20,10 +20,16 @@ struct APIRequest: Codable {
 class APIService {
     static let shared = APIService() // Singleton for easy access
     
-    private let apiURL = URL(string: "https://ghost.hurated.com/interact")!
+    private let baseURL = "https://ghost.hurated.com/interact/"
     
     // Asynchronous function to send a message and receive a response
-    func sendMessage(_ message: String) async throws -> String {
+    func sendMessage(_ message: String, to characterID: String) async throws -> String {
+        
+        // --- DYNAMICALLY CONSTRUCT THE URL ---
+        guard let apiURL = URL(string: baseURL + characterID) else {
+            throw URLError(.badURL)
+        }
+        
         var request = URLRequest(url: apiURL)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")

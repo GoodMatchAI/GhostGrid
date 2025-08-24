@@ -93,7 +93,7 @@ struct InteractionView: View {
         Task {
             isThinking = true
             do {
-                let initialResponse = try await APIService.shared.sendMessage("I'm here.")
+                let initialResponse = try await APIService.shared.sendMessage("I'm here.", to: mission.characterID)
                 messages[0] = ChatMessage(text: initialResponse, isFromUser: false)
             } catch {
                 messages[0] = ChatMessage(text: "Connection lost... the signal is weak.", isFromUser: false)
@@ -110,7 +110,7 @@ struct InteractionView: View {
         
         Task {
             do {
-                let response = try await APIService.shared.sendMessage(userMessage)
+                let response = try await APIService.shared.sendMessage(userMessage, to: mission.characterID)
                 messages.append(ChatMessage(text: response, isFromUser: false))
             } catch {
                 messages.append(ChatMessage(text: "The signal faded...", isFromUser: false))
