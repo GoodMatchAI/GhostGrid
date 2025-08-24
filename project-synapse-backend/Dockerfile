@@ -22,5 +22,5 @@ COPY . .
 # Expose the port the app will run on
 EXPOSE 5001
 
-# The command to run your application using Gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:5001", "app:app"]
+# The command to run your application using Gunicorn with enhanced logging
+CMD ["gunicorn", "--bind", "0.0.0.0:5001", "--log-level", "info", "--access-logfile", "-", "--error-logfile", "-", "app:app"]

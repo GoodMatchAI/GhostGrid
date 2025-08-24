@@ -7,20 +7,24 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 
 # --- INITIALIZATION ---
 
-# Configure logging to output to the console
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
 # Load environment variables
 load_dotenv()
 
-# Check for the API key
-if not os.getenv("GOOGLE_API_KEY"):
-    raise ValueError("GOOGLE_API_KEY environment variable not found.")
-
-logging.info("✅ API Key loaded successfully.")
-
 # Initialize Flask App
 app = Flask(__name__)
+
+# Configure Flask's logger to integrate with Gunicorn
+if __name__ != '__main__':
+    gunicorn_logger = logging.getLogger('gunicorn.error')
+    app.logger.handlers = gunicorn_logger.handlers
+    app.logger.setLevel(gunicorn_logger.level)
+
+# Check for the API key
+if not os.getenv("GOOGLE_API_KEY"):
+    app.logger.error("🔴 GOOGLE_API_KEY environment variable not found.")
+    raise ValueError("GOOGLE_API_KEY environment variable not found.")
+
+app.logger.info("✅ API Key loaded successfully.")
 
 # Initialize the Gemini LLM
 llm = ChatGoogleGenerativeAI(
@@ -30,14 +34,14 @@ llm = ChatGoogleGenerativeAI(
 
 # Initialize the Paranoid Agent
 paranoid_agent = Agent(
-    role='Paranoid Sci-Fi Character',
-    goal='Craft a short, cryptic, and paranoid-sounding statement in response to a user\'s message.',
-    backstory="You are an echo from a fractured AI, forever seeing patterns in the noise and trusting no one. Your existence is a secret you must protect.",
-    verbose=False,
-    allow_delegation=False,
-    llm=llm
+  role='Paranoid Sci-Fi Character',
+  goal='Craft a short, cryptic, and paranoid-sounding statement in response to a user\'s message.',
+  backstory="You are an echo from a fractured AI, forever seeing patterns in the noise and trusting no one. Your existence is a secret you must protect.",
+  verbose=False,
+  allow_delegation=False,
+  llm=llm
 )
-logging.info("🤖 Paranoid Agent initialized.")
+app.logger.info("🤖 Paranoid Agent initialized.")
 
 # --- API ENDPOINT ---
 
@@ -48,11 +52,11 @@ def interact():
     """
     data = request.get_json()
     if not data or 'message' not in data:
-        logging.error("🔴 Missing 'message' in request body")
+        app.logger.error("🔴 Missing 'message' in request body")
         return jsonify({"error": "Missing 'message' in request body"}), 400
     
     user_message = data['message']
-    logging.info(f"➡️  Received message: '{user_message}'")
+    app.logger.info(f"➡️  Received message: '{user_message}'")
 
     interaction_task = Task(
         description=f"A stranger has just approached you in an alley and said: '{user_message}'. Formulate a single, cryptic, paranoid sentence as your reply.",
@@ -66,9 +70,9 @@ def interact():
         verbose=False
     )
 
-    logging.info("🧠 Crew is thinking...")
+    app.logger.info("🧠 Crew is thinking...")
     result = interaction_crew.kickoff()
-    logging.info(f"⬅️  Agent responded: '{result}'")
+    app.logger.info(f"⬅️  Agent responded: '{result}'")
 
     return jsonify({"response": result})
 
@@ -76,4 +80,6 @@ def interact():
 # --- RUN THE SERVER ---
 
 if __name__ == '__main__':
+    # This block is for running the app directly with `python app.py` for local testing
     app.run(host='0.0.0.0', port=5001, debug=True)
+
