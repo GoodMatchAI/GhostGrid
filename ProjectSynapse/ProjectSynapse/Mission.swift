@@ -8,33 +8,26 @@
 import Foundation
 import CoreLocation
 
-struct Mission: Identifiable {
-    let id = UUID()
-    let name: String
-    let coordinate: CLLocationCoordinate2D
-    let radius: CLLocationDistance
-    let characterID: String // <-- ADD THIS LINE
+// Helper struct for decoding coordinates from the server's JSON
+struct Coordinate: Codable {
+    let latitude: Double
+    let longitude: Double
 }
 
-// Hard-coded mission locations
-let missionLocations = [
-    Mission(name: "Echo at Coit Tower",
-            coordinate: CLLocationCoordinate2D(latitude: 37.8024, longitude: -122.4058),
-            radius: 100,
-            characterID: "digital_historian"),
+// The main Mission struct, now fully Codable to match the server's response.
+// It no longer needs to be Identifiable in the same way, as we fetch the data.
+struct Mission: Codable, Identifiable {
+    let id: String
+    let name: String
+    let radius: CLLocationDistance
+    let location: Coordinate
     
-    Mission(name: "Echo at Ferry Building",
-            coordinate: CLLocationCoordinate2D(latitude: 37.7956, longitude: -122.3937),
-            radius: 100,
-            characterID: "digital_historian"),
-    
-    Mission(name: "Echo at 1524 Powell St",
-            coordinate: CLLocationCoordinate2D(latitude: 37.799128, longitude: -122.410260),
-            radius: 100,
-            characterID: "paranoid_cryptographer"),
-    
-    Mission(name: "Echo at Alamo Square",
-            coordinate: CLLocationCoordinate2D(latitude: 37.7761, longitude: -122.4349),
-            radius: 100,
-            characterID: "paranoid_cryptographer")
-]
+    // This computed property is a convenient way to get the CLLocationCoordinate2D
+    // that MapKit needs, directly from the decoded location data.
+    var coordinate: CLLocationCoordinate2D {
+        CLLocationCoordinate2D(
+            latitude: location.latitude,
+            longitude: location.longitude
+        )
+    }
+}
