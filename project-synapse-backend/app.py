@@ -8,9 +8,6 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 
 # --- INITIALIZATION ---
 
-# Load environment variables
-load_dotenv()
-
 # Initialize Flask App and configure logging
 app = Flask(__name__)
 if __name__ != '__main__':
@@ -18,16 +15,16 @@ if __name__ != '__main__':
     app.logger.handlers = gunicorn_logger.handlers
     app.logger.setLevel(gunicorn_logger.level)
 
-# Load all character definitions from the JSON file on startup
+# Load all mission definitions from the JSON file on startup
 try:
-    with open('characters.json', 'r') as f:
-        characters_data = json.load(f)['characters']
+    with open('missions.json', 'r') as f:
+        missions_data = json.load(f)['missions']
     # Create a dictionary for easy lookup by ID
-    CHARACTERS = {char['id']: char for char in characters_data}
-    app.logger.info(f"✅ Loaded {len(CHARACTERS)} characters successfully.")
+    MISSIONS = {mission['id']: mission for mission in missions_data}
+    app.logger.info(f"✅ Loaded {len(MISSIONS)} missions successfully.")
 except Exception as e:
-    app.logger.error(f"🔴 Failed to load characters.json: {e}")
-    CHARACTERS = {}
+    app.logger.error(f"🔴 Failed to load missions.json: {e}")
+    MISSIONS = {}
 
 # Initialize the Gemini LLM (shared by all agents)
 llm = ChatGoogleGenerativeAI(
@@ -36,18 +33,29 @@ llm = ChatGoogleGenerativeAI(
 )
 app.logger.info("✅ Gemini LLM Initialized.")
 
-# --- DYNAMIC API ENDPOINT ---
+# --- API ENDPOINTS ---
 
-@app.route('/interact/<character_id>', methods=['POST'])
-def interact(character_id):
+@app.route('/missions', methods=['GET'])
+def get_missions():
     """
-    This endpoint interacts with a specific character identified by character_id.
+    Returns the full list of mission data to the client.
     """
-    # 1. Find the character definition
-    character_info = CHARACTERS.get(character_id)
-    if not character_info:
-        app.logger.error(f"🔴 Character ID not found: {character_id}")
-        return jsonify({"error": "Character not found"}), 404
+    app.logger.info("➡️  Request received for /missions")
+    # We return the list of mission values, not the whole dictionary
+    return jsonify(list(MISSIONS.values()))
+
+@app.route('/interact/<mission_id>', methods=['POST'])
+def interact(mission_id):
+    """
+    This endpoint interacts with the character for a specific mission.
+    """
+    # 1. Find the mission and its character
+    mission_info = MISSIONS.get(mission_id)
+    if not mission_info:
+        app.logger.error(f"🔴 Mission ID not found: {mission_id}")
+        return jsonify({"error": "Mission not found"}), 404
+    
+    character_info = mission_info['character']
 
     # 2. Get the user's message
     data = request.get_json()
@@ -58,7 +66,7 @@ def interact(character_id):
     user_message = data['message']
     app.logger.info(f"➡️  Received message for '{character_info['name']}': '{user_message}'")
 
-    # 3. Dynamically create the Agent for this interaction
+    # 3. Dynamically create the Agent
     agent = Agent(
         role=character_info['role'],
         goal=character_info['goal'],
@@ -68,15 +76,14 @@ def interact(character_id):
         llm=llm
     )
 
-    # 4. Create the Task
+    # 4. Create the Task and Crew
     task = Task(
         description=f"A stranger has just approached you and said: '{user_message}'. Formulate a reply based on your personality and goal.",
         expected_output="A single, short sentence or two.",
         agent=agent
     )
-
-    # 5. Create and run the Crew
     crew = Crew(agents=[agent], tasks=[task], verbose=False)
+    
     app.logger.info(f"🧠 Crew for '{character_info['name']}' is thinking...")
     result = crew.kickoff()
     app.logger.info(f"⬅️  Agent responded: '{result}'")
