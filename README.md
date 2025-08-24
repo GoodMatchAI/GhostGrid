@@ -111,3 +111,7 @@ In Xcode, select your connected iPhone or an iOS Simulator as the run target.
 Click the "Run" button (or press `Cmd+R`). Xcode will build and install the app on your selected target.
 
 The first time you run the app, you will be prompted to grant location permissions. The app is now ready to play.
+
+## Trivia
+
+Developed during [CrewAI Hackathon](https://lu.ma/cif1kc8v).

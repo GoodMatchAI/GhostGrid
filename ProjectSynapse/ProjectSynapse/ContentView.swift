@@ -5,19 +5,22 @@
 //  Created by Denis Bystruev on 8/23/25.
 //
 
-import MapKit
 import SwiftUI
+import MapKit
 
 struct ContentView: View {
     @StateObject private var locationManager = LocationManager()
     @State private var position: MapCameraPosition = .userLocation(fallback: .automatic)
     
+    // State to hold the missions fetched from the server
+    @State private var missions: [Mission] = []
+    
     var body: some View {
         Map(position: $position) {
             UserAnnotation()
             
-            ForEach(missionLocations) { mission in
-                // The visual pin for the mission
+            // The map now reads from the @State variable
+            ForEach(missions) { mission in
                 Annotation(mission.name, coordinate: mission.coordinate) {
                     Image(systemName: "antenna.radiowaves.left.and.right.circle.fill")
                         .symbolRenderingMode(.palette)
@@ -33,19 +36,28 @@ struct ContentView: View {
         }
         .mapStyle(.standard(elevation: .realistic))
         .ignoresSafeArea()
-        .onAppear {
-            locationManager.requestAuthorization()
-        }
-        .onChange(of: locationManager.lastKnownLocation) { _, newLocation in
-            if let newLocation {
-                position = .camera(
-                    MapCamera(centerCoordinate: newLocation.coordinate, distance: 2000, heading: 0, pitch: 60)
-                )
-            }
+        .task {
+            // Use .task for modern async calls when the view appears
+            await loadMissions()
         }
         .sheet(item: $locationManager.activeMission) { mission in
+            // When the sheet is dismissed, clear the active mission
             InteractionView(mission: mission)
-                .presentationDetents([.medium, .large]) // Makes a nice half/full sheet
+                .onDisappear {
+                    locationManager.activeMission = nil
+                }
+        }
+    }
+    
+    private func loadMissions() async {
+        do {
+            let fetchedMissions = try await APIService.shared.fetchMissions()
+            self.missions = fetchedMissions
+            // Once missions are loaded, tell the LocationManager to start monitoring them
+            locationManager.startMonitoring(missions: fetchedMissions)
+        } catch {
+            print("🔴 Failed to fetch missions: \(error)")
+            // Optionally, show an error to the user
         }
     }
 }

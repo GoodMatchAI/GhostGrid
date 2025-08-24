@@ -5,7 +5,9 @@
 //  Created by Denis Bystruev on 8/23/25.
 //
 
+import Foundation
 import CoreLocation
+import Combine
 
 class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     private let locationManager = CLLocationManager()
@@ -13,6 +15,9 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     @Published var authorizationStatus: CLAuthorizationStatus
     @Published var lastKnownLocation: CLLocation?
     @Published var activeMission: Mission? = nil
+    
+    // Store the missions fetched from the server
+    private var monitoredMissions: [Mission] = []
     
     override init() {
         self.authorizationStatus = locationManager.authorizationStatus
@@ -27,11 +32,18 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     }
     
     func startMonitoring(missions: [Mission]) {
+        self.monitoredMissions = missions // Store the fetched missions
+        
         if CLLocationManager.isMonitoringAvailable(for: CLCircularRegion.self) {
+            // Stop monitoring any old regions before starting new ones
+            for region in locationManager.monitoredRegions {
+                locationManager.stopMonitoring(for: region)
+            }
+            
             for mission in missions {
-                let region = CLCircularRegion(center: mission.coordinate, radius: mission.radius, identifier: mission.id.uuidString)
+                let region = CLCircularRegion(center: mission.coordinate, radius: mission.radius, identifier: mission.id)
                 region.notifyOnEntry = true
-                region.notifyOnExit = false // We only care when they enter
+                region.notifyOnExit = false
                 locationManager.startMonitoring(for: region)
                 locationManager.requestState(for: region)
                 print("🔵 Started monitoring for mission: \(mission.name)")
@@ -43,10 +55,6 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         self.authorizationStatus = manager.authorizationStatus
-        
-        if manager.authorizationStatus == .authorizedWhenInUse || manager.authorizationStatus == .authorizedAlways {
-            startMonitoring(missions: missionLocations)
-        }
     }
     
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
@@ -58,39 +66,31 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     }
     
     func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
-        print("--- Delegate Fired: didEnterRegion for identifier: \(region.identifier)")
         handleRegionEvent(for: region)
     }
     
+    // --- THIS IS THE FIX ---
+    // The old version of this method was referencing the deleted 'missionLocations' array.
+    // This new version correctly uses the 'self.monitoredMissions' property.
     func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {
-        guard let mission = missionLocations.first(where: { $0.id.uuidString == region.identifier }) else { return }
+        guard let mission = self.monitoredMissions.first(where: { $0.id == region.identifier }) else { return }
         print("❌ Player EXITED a mission zone: \(mission.name)")
     }
     
     func locationManager(_ manager: CLLocationManager, didDetermineState state: CLRegionState, for region: CLRegion) {
-        print("--- Delegate Fired: didDetermineState is '\(state == .inside ? "inside" : "outside")'")
         if state == .inside {
             handleRegionEvent(for: region)
         }
     }
     
     private func handleRegionEvent(for region: CLRegion) {
-        print("--- Searching for match for region identifier: \(region.identifier)")
-        print("--- Available mission IDs are:")
-        for mission in missionLocations {
-            print("    - \(mission.id.uuidString)")
-        }
+        // Use the stored missions for lookup
+        guard let mission = self.monitoredMissions.first(where: { $0.id == region.identifier }) else { return }
         
-        guard let mission = missionLocations.first(where: { $0.id.uuidString == region.identifier }) else { return }
-        
-        // UI updates must be on the main thread
         DispatchQueue.main.async {
-            // Only trigger if a mission isn't already active
             if self.activeMission == nil {
                 print("✅ TRIGGERING mission: \(mission.name)")
                 self.activeMission = mission
-            } else {
-                print("🟡 IGNORED trigger for \(mission.name), another mission is already active.")
             }
         }
     }
